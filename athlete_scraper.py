@@ -43,6 +43,7 @@ def set_int(string):
     return num
 
 def scrape_athlete(link):
+    '''link is a direct link to the athlete-specific results page'''
     page_response = requests.get(link, timeout=5)
     soup = BeautifulSoup(page_response.content, 'html.parser')
 
@@ -76,3 +77,9 @@ def scrape_athlete(link):
     a1.t2_time = time_split(race_details[27].get_text())
 
     return a1
+
+def simple_scrape(soup):
+    '''soup is a BeautifulSoup of the general results page (usually 20 athletes per page)'''
+    athlete_table = soup.find('div',{'class':'results-athletes-table'})
+    return
+
