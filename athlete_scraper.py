@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 #athlete-scraper
 import csv
+import time
 import requests
 import os.path
 from bs4 import BeautifulSoup
@@ -7,6 +9,7 @@ from bs4 import BeautifulSoup
 class Athlete:
 
     def __init__(self):
+        self.link = None
         self.name = None
         self.bib = None
         self.division = None
@@ -42,6 +45,42 @@ def set_int(string):
         return float('nan')
     return num
 
+def soup_link(link, timeout=20, return_latency=False, retry=5):
+
+    for _ in range(retry):
+        try:
+            page_response = requests.get(link, timeout=timeout)
+        except:
+            print('Error in accessing page; retrying...')
+            continue
+        if page_response:
+            break
+        wait = get_wait(page_response.elapsed.total_seconds())
+        print('--- Waiting {:6.3f} seconds ---'.format(wait))
+        time.sleep(wait)
+
+    try:
+        if page_response:
+            pass
+    except:
+        raise Exception('ResponseError: No response from the server.')
+
+    latency = page_response.elapsed.total_seconds()
+    soup = BeautifulSoup(page_response.content, 'lxml')
+
+    if return_latency:
+        return soup, latency
+    else:
+        return soup
+    
+def get_wait(latency):
+    if latency < 1:
+        wait_time = 10*latency
+    else:
+        wait_time = 10
+
+    return wait_time
+
 def scrape_athlete(link):
     '''link is a direct link to the athlete-specific results page'''
     page_response = requests.get(link, timeout=5)
@@ -55,7 +94,8 @@ def scrape_athlete(link):
     race_details = result_window.find('div', {'class': 'athlete-table-details'}).find_all('td')
 
     a1 = Athlete()
-    a1.name = header.h1.get_text()
+    a1.link = link
+    a1.name = header.h1.get_text().strip()
     a1.overall_rank = set_int(header.find('div', {'id':'div-rank'}).get_text().split(': ',1)[-1])
     a1.divison_rank = set_int(header.find('div', {'id':'rank'}).get_text().split(': ',1)[-1])
     a1.gender_rank = set_int(header.find('div', {'id':'gen-rank'}).get_text().split(': ',1)[-1])
@@ -78,8 +118,41 @@ def scrape_athlete(link):
 
     return a1
 
-def simple_scrape(soup):
-    '''soup is a BeautifulSoup of the general results page (usually 20 athletes per page)'''
-    athlete_table = soup.find('div',{'class':'results-athletes-table'})
-    return
+def simple_scrape(link, outfile='athlete_data'):
+    ''' Scrape summary data from general results page. Does not require request to individual athletes pages.
+    link is to the general results page (usually 20 athletes per page)'''
+
+    if not isinstance(link,(list,set)):
+        link = [link]
+
+    with open(outfile+'.csv', 'w', encoding='utf-8') as f:
+        writer = csv.writer(f)
+
+        for i,l in enumerate(link):
+            print('Processing page {:d} of {:d}'.format(i+1,len(link)))
+            soup, latency = soup_link(l,return_latency=True)
+            athlete_rows = soup.find('div',{'class':'results-athletes-table'}).find_all('tr')[1:]
+
+            for ar in athlete_rows:
+                data = ar.find_all('td')
+                a1 = Athlete()
+                a1.link = l + data[0].find('a').get('href')
+                a1.name = data[0].get_text().strip()
+                a1.overall_rank = set_int(data[4].get_text())
+                a1.divison_rank = set_int(data[2].get_text())
+                a1.gender_rank = set_int(data[3].get_text())
+                a1.country = data[1].get_text()
+                a1.points = data[9].get_text()
+                a1.swim_time = time_split(data[5].get_text())
+                a1.bike_time = time_split(data[6].get_text())
+                a1.run_time = time_split(data[7].get_text())
+                a1.total_time = time_split(data[8].get_text())
+                
+                writer.writerow(a1.__dict__.values())
+            
+            wait = get_wait(latency)
+            print('--- Waiting {:.3f} seconds ---'.format(wait))
+            time.sleep(wait)
+
+    return athlete_rows
 
