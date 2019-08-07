@@ -118,18 +118,19 @@ def scrape_athlete(link):
 
     return a1
 
-def simple_scrape(link, outfile='athlete_data'):
+def simple_scrape(link, outfile='athlete_data', v=True):
     ''' Scrape summary data from general results page. Does not require request to individual athletes pages.
     link is to the general results page (usually 20 athletes per page)'''
 
-    if not isinstance(link,(list,set)):
-        link = [link]
+    links = get_event_links(link)
 
     with open(outfile+'.csv', 'w', encoding='utf-8') as f:
         writer = csv.writer(f)
 
-        for i,l in enumerate(link):
-            print('Processing page {:d} of {:d}'.format(i+1,len(link)))
+        for i,l in enumerate(links):
+            if v:
+                print('Processing page {:d} of {:d}'.format(i+1,len(links)))
+
             soup, latency = soup_link(l,return_latency=True)
             athlete_rows = soup.find('div',{'class':'results-athletes-table'}).find_all('tr')[1:]
 
@@ -151,8 +152,55 @@ def simple_scrape(link, outfile='athlete_data'):
                 writer.writerow(a1.__dict__.values())
             
             wait = get_wait(latency)
-            print('--- Waiting {:.3f} seconds ---'.format(wait))
+            if v:
+                print('--- Waiting {:.3f} seconds ---'.format(wait))
             time.sleep(wait)
 
-    return athlete_rows
+    return
+
+def get_event_links(link, v=True):
+    '''link is event results main page'''
+    soup = soup_link(link)
+
+    page_table = soup.find('div',{'id':'pagination'})
+    last_page = page_table.find_all('span')[-2].get_text()
+    last_page_link = page_table.find_all('a')[-2].get('href')
+
+    page_links = [last_page_link.replace('p='+last_page, 'p='+str(n+1)) for n in range(int(last_page))]
+
+    if v:
+        print('Retrieved {:d} page links!'.format(len(page_links)))
+
+    return page_links
+
+def scrape_athlete_links(link, outfile='athlete_links', v=True):
+    '''link is event results page'''
+
+    page_links = get_event_links(link)
+    total_links = 0
+
+    with open(outfile+'.csv', 'w', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['lastname','firstname','link','complete'])
+
+        for i,p in enumerate(page_links):
+            soup, latency = soup_link(p, return_latency=True)
+            athlete_table = soup.find_all('a',{'class':'athlete'})
+            athlete_links = [link+a.get('href') for a in athlete_table]
+            writer.writerows([s.strip() for s in at.get_text().split(',',1)]+[al]+[0] for at, al in zip(athlete_table,athlete_links))
+
+            total_links += len(athlete_links)
+            wait = get_wait(latency)
+            if v:
+                print('Page {:d} of {:d}: Recovered {:d} athlete links!'.format(i+1, len(page_links), len(athlete_links)))
+                print('--- Waiting {:.3f} seconds ---'.format(wait))
+            time.sleep(wait)
+
+    if v:
+        print('Retrieved a total of {:d} athlete links!'.format(total_links))
+
+    return
+
+
+
 
