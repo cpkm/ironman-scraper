@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 #athlete-scraper
+import pandas as pd
 import csv
 import time
 import requests
-import os.path
+import os
 from bs4 import BeautifulSoup
+from random import uniform
 
 class Athlete:
 
@@ -73,18 +75,29 @@ def soup_link(link, timeout=20, return_latency=False, retry=5):
     else:
         return soup
     
-def get_wait(latency):
-    if latency < 1:
+def get_wait(latency=None, ftime=None, frandom=True):
+
+    if ftime is not None:
+        if frandom:
+            rt = 1
+        else:
+            rt = 0
+        wait_time = ftime*(1 + rt*uniform(-0.1,0.1))
+
+    elif latency is None:
+        wait_time = 10 
+
+    elif latency < 1:
         wait_time = 10*latency
+    
     else:
         wait_time = 10
 
     return wait_time
 
-def scrape_athlete(link):
+def scrape_athlete(link, return_latency=False):
     '''link is a direct link to the athlete-specific results page'''
-    page_response = requests.get(link, timeout=5)
-    soup = BeautifulSoup(page_response.content, 'html.parser')
+    soup, latency = soup_link(link, return_latency=True)
 
     result_window = soup.find('div', {'class':'moduleWrap eventResults resultsListing resultsListingDetails'})
 
@@ -115,6 +128,9 @@ def scrape_athlete(link):
     a1.run_racetime = time_split(race_details[19].get_text())
     a1.t1_time = time_split(race_details[25].get_text())
     a1.t2_time = time_split(race_details[27].get_text())
+
+    if return_latency:
+        return a1, latency
 
     return a1
 
@@ -158,6 +174,36 @@ def simple_scrape(link, outfile='athlete_data', v=True):
 
     return
 
+def full_scrape(link, data_outfile='data/full_athlete_data', link_outfile='data/athlete_links', linkdf=None, v=True):
+    ''' Scrape summary data from general results page. Does not require request to individual athletes pages.
+    link is to the general results page'''
+
+    if linkdf is not None:
+        ad = linkdf
+    else:
+        ad = scrape_athlete_links(link, outfile=link_outfile, return_links=True, v=True)
+
+    al = list(ad['link'])
+
+    filename = data_outfile+'.csv'
+    dirname = os.path.dirname(filename)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+    with open(filename, 'w', encoding='utf-8') as f:
+        writer = csv.writer(f)
+
+        for i,l in enumerate(al):
+            if v:
+                print('Processing page {:d} of {:d}'.format(i+1,len(al)))
+            a1, latency = scrape_athlete(l,return_latency=True)
+            writer.writerow(a1.__dict__.values())
+            wait = get_wait(latency,ftime=1)
+            if v:
+                print('--- Waiting {:.3f} seconds ---'.format(wait))
+            time.sleep(wait)
+    return
+
 def get_event_links(link, v=True):
     '''link is event results main page'''
     soup = soup_link(link)
@@ -173,13 +219,18 @@ def get_event_links(link, v=True):
 
     return page_links
 
-def scrape_athlete_links(link, outfile='athlete_links', v=True):
+def scrape_athlete_links(link, outfile='athlete_links', v=True, return_links=False):
     '''link is event results page'''
 
     page_links = get_event_links(link)
     total_links = 0
+    filename = outfile + '.csv'
 
-    with open(outfile+'.csv', 'w', encoding='utf-8') as f:
+    dirname = os.path.dirname(filename)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+    with open(filename, 'w', encoding='utf-8') as f:
         writer = csv.writer(f)
         writer.writerow(['lastname','firstname','link','complete'])
 
@@ -198,6 +249,9 @@ def scrape_athlete_links(link, outfile='athlete_links', v=True):
 
     if v:
         print('Retrieved a total of {:d} athlete links!'.format(total_links))
+
+    if return_links:
+        return pd.read_csv(filename)
 
     return
 
