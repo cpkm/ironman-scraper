@@ -24,7 +24,7 @@ class Athlete:
         self.divison_rank = None
         self.gender_rank = None
         self.swim_time = None
-        self.bike_tim  = None
+        self.bike_time  = None
         self.run_time = None
         self.total_time = None
         self.swim_racetime = None
@@ -192,6 +192,8 @@ def full_scrape(link, data_outfile='data/full_athlete_data', link_outfile='data/
 
     with open(filename, 'w', encoding='utf-8') as f:
         writer = csv.writer(f)
+        a1 = Athlete()
+        writer.writerow(a1.__dict__.keys())
 
         for i,l in enumerate(al):
             if v:
