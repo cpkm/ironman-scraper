@@ -75,7 +75,7 @@ def soup_link(link, timeout=20, return_latency=False, retry=5):
     else:
         return soup
     
-def get_wait(latency=None, ftime=None, frandom=True):
+def get_wait(latency=None, ftime=None, frandom=True, **kwargs):
 
     if ftime is not None:
         if frandom:
@@ -134,7 +134,7 @@ def scrape_athlete(link, return_latency=False):
 
     return a1
 
-def simple_scrape(link, outfile='athlete_data', v=True):
+def simple_scrape(link, outfile='athlete_data', v=True, **kwargs):
     ''' Scrape summary data from general results page. Does not require request to individual athletes pages.
     link is to the general results page (usually 20 athletes per page)'''
 
@@ -167,14 +167,14 @@ def simple_scrape(link, outfile='athlete_data', v=True):
                 
                 writer.writerow(a1.__dict__.values())
             
-            wait = get_wait(latency)
+            wait = get_wait(latency,**kwargs)
             if v:
                 print('--- Waiting {:.3f} seconds ---'.format(wait))
             time.sleep(wait)
 
     return
 
-def full_scrape(link, data_outfile='data/full_athlete_data', link_outfile='data/athlete_links', linkdf=None, v=True):
+def full_scrape(link, data_outfile='data/full_athlete_data', link_outfile='data/athlete_links', linkdf=None, v=True, **kwargs):
     ''' Scrape summary data from general results page. Does not require request to individual athletes pages.
     link is to the general results page'''
 
@@ -200,7 +200,7 @@ def full_scrape(link, data_outfile='data/full_athlete_data', link_outfile='data/
                 print('Processing page {:d} of {:d}'.format(i+1,len(al)))
             a1, latency = scrape_athlete(l,return_latency=True)
             writer.writerow(a1.__dict__.values())
-            wait = get_wait(latency,ftime=1)
+            wait = get_wait(latency,**kwargs)
             if v:
                 print('--- Waiting {:.3f} seconds ---'.format(wait))
             time.sleep(wait)
@@ -256,7 +256,3 @@ def scrape_athlete_links(link, outfile='athlete_links', v=True, return_links=Fal
         return pd.read_csv(filename)
 
     return
-
-
-
-

@@ -17,4 +17,4 @@ results_link = 'https://www.ironman.com/triathlon/events/americas/ironman/canada
 
 #ad = pd.read_csv('data/haugesund703/athlete_links.csv')
 
-full_scrape(results_link, data_outfile='data/canada140/data', link_outfile='data/canada140/athlete_links')
+full_scrape(results_link, data_outfile='data/canada140/data', link_outfile='data/canada140/athlete_links', ftime=1)
