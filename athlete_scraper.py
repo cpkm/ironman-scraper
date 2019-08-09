@@ -134,14 +134,23 @@ def scrape_athlete(link, return_latency=False):
 
     return a1
 
-def simple_scrape(link, outfile='athlete_data', v=True, **kwargs):
+def simple_scrape(link, outfile='data/simple_data', save_links=False, v=True, **kwargs):
     ''' Scrape summary data from general results page. Does not require request to individual athletes pages.
     link is to the general results page (usually 20 athletes per page)'''
 
     links = get_event_links(link)
 
-    with open(outfile+'.csv', 'w', encoding='utf-8') as f:
+    filename = outfile+'.csv'
+    dirname = os.path.dirname(filename)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+    with open(filename, 'w', encoding='utf-8') as f:
         writer = csv.writer(f)
+        a1 = Athlete()
+        writer.writerow(a1.__dict__.keys())
+        #writer.writerow(['link','name','overall_rank','divison_rank','gender_rank',
+        #        'country','points','swim_time','bike_time','run_time','total_time'])
 
         for i,l in enumerate(links):
             if v:
@@ -172,11 +181,14 @@ def simple_scrape(link, outfile='athlete_data', v=True, **kwargs):
                 print('--- Waiting {:.3f} seconds ---'.format(wait))
             time.sleep(wait)
 
+    if save_links:
+        simple2al(outfile+'.csv', os.path.dirname(outfile)+'/athlete_links')
     return
 
 def full_scrape(link, data_outfile='data/full_athlete_data', link_outfile='data/athlete_links', linkdf=None, v=True, **kwargs):
     ''' Scrape summary data from general results page. Does not require request to individual athletes pages.
-    link is to the general results page'''
+    link is to the general results page
+    linkdf = DataFrame including athlete links. Can be simple_scrape or athlete_link, as long as it has 'link' column'''
 
     if linkdf is not None:
         ad = linkdf
@@ -234,13 +246,14 @@ def scrape_athlete_links(link, outfile='athlete_links', v=True, return_links=Fal
 
     with open(filename, 'w', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.writerow(['lastname','firstname','link','complete'])
+        writer.writerow(['name','link'])
 
         for i,p in enumerate(page_links):
             soup, latency = soup_link(p, return_latency=True)
             athlete_table = soup.find_all('a',{'class':'athlete'})
             athlete_links = [link+a.get('href') for a in athlete_table]
-            writer.writerows([s.strip() for s in at.get_text().split(',',1)]+[al]+[0] for at, al in zip(athlete_table,athlete_links))
+            writer.writerows([at.get_text().strip()]+[al] for at, al in zip(athlete_table,athlete_links))
+            #writer.writerows([s.strip() for s in at.get_text().split(',',1)]+[al]+[0] for at, al in zip(athlete_table,athlete_links))
 
             total_links += len(athlete_links)
             wait = get_wait(latency)
@@ -255,4 +268,10 @@ def scrape_athlete_links(link, outfile='athlete_links', v=True, return_links=Fal
     if return_links:
         return pd.read_csv(filename)
 
+    return
+
+def simple2al(simple_file, outfile='athlete_links'):
+    sd = pd.read_csv(simple_file)
+    al = sd[['name','link']]
+    al.to_csv(outfile+'.csv', index=False)
     return
